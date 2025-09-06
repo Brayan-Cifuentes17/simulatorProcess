@@ -6,29 +6,47 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
-public class CustomDialog extends JDialog{
+public class CustomDialog extends JDialog implements KeyListener {
     
     public static final int WARNING_TYPE = 1;
     public static final int INFO_TYPE = 2;
     public static final int CONFIRM_TYPE = 3;
     
+    private JButton defaultButton; 
+    
     public CustomDialog(ActionListener listener, String text, int type){
-        this.setSize(new Dimension(350, 100+(10*quantityOfWords(text, "<br>"))));
+       
+        int lines = quantityOfWords(text, "<br>") + 1;
+        int baseWidth = Math.max(350, text.length() * 8); 
+        int baseHeight = 120 + (lines * 25); 
+        
         if(type == CONFIRM_TYPE) {
-            this.setSize(new Dimension(350, 120+(10*quantityOfWords(text, "<br>"))));
+            baseHeight += 20; 
         }
+        
+        this.setSize(new Dimension(baseWidth, baseHeight));
         this.setLocationRelativeTo(null);
         this.setLayout(new GridBagLayout());
         this.setUndecorated(true);
         this.setAlwaysOnTop(true);
         this.setModal(true);
+        
+       
+        this.addKeyListener(this);
+        this.setFocusable(true);
+        
         initComponents(listener, text, type);
         this.setVisible(true);
+        
+      
+        this.requestFocus();
     }
     
     public static int quantityOfWords(String text, String word) {
@@ -48,37 +66,77 @@ public class CustomDialog extends JDialog{
         panel.setPreferredSize(this.getSize());
         panel.setBackground(Color.lightGray);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 0, 0, 0);
-        JLabel label = new JLabel(text);
+        gbc.insets = new Insets(15, 15, 15, 15); // Más padding
+        
+        
+        JLabel label = new JLabel("<html><div style='text-align: center; width: " + 
+                                 (this.getWidth() - 60) + "px;'>" + text + "</div></html>");
+        label.setHorizontalAlignment(JLabel.CENTER);
         panel.add(label, gbc);
         gbc.gridy = 1;
         
         if(type == CONFIRM_TYPE) {
-            JPanel buttonPanel = new JPanel(new FlowLayout());
+            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
             buttonPanel.setBackground(Color.lightGray);
             
             JButton yesButton = new JButton("Si");
             yesButton.addActionListener(listener);
             yesButton.setActionCommand(Constants.CONFIRM_YES);
+            yesButton.addKeyListener(this);
             
             JButton noButton = new JButton("No");
             noButton.addActionListener(listener);
             noButton.setActionCommand(Constants.CONFIRM_NO);
+            noButton.addKeyListener(this);
             
             buttonPanel.add(yesButton);
             buttonPanel.add(noButton);
             panel.add(buttonPanel, gbc);
+            
+            
+            defaultButton = yesButton;
+            yesButton.requestFocusInWindow();
+            
         } else {
             JButton button = new JButton("Aceptar");
             button.addActionListener(listener);
+            button.addKeyListener(this);
+            
             if(type == WARNING_TYPE) {
                 button.setActionCommand(Constants.CLOSE_WARNING);
             } else {
                 button.setActionCommand(Constants.CLOSE_INFO);
             }
             panel.add(button, gbc);
+            
+           
+            defaultButton = button;
+            button.requestFocusInWindow();
         }
         
         this.add(panel);
+    }
+    
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            
+            if (defaultButton != null) {
+                defaultButton.doClick();
+            }
+        } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            // ESC para cerrar el diálogo
+            this.dispose();
+        }
+    }
+    
+    @Override
+    public void keyTyped(KeyEvent e) {
+        // No necesario
+    }
+    
+    @Override
+    public void keyReleased(KeyEvent e) {
+        // No necesario
     }
 }

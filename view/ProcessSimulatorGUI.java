@@ -37,18 +37,18 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private JPanel resultsPanel;
     private CardLayout cardLayout;
     
-    // Tablas de resultados - AGREGAMOS UNA MÁS PARA REFERENCIAS
+    
     private DefaultTableModel[] resultTableModels;
     private String[] tableNames = {
         "Inicial", "Listos", "Despachados", "En Ejecución", 
         "Tiempo Expirado", "Bloqueados", "Despertar", "Finalizados",
-        "Prioridad Cambiada", "Suspendidos", "Reanudados", "Destruidos", "Referencias"
+        "Prioridad Cambiada", "Suspendidos", "Reanudados", "Destruidos", "Relacion-Comunicacion"
     };
     private Filter[] filters = {
         Filter.INICIAL, Filter.LISTO, Filter.DESPACHADO, Filter.EN_EJECUCION,
         Filter.TIEMPO_EXPIRADO, Filter.BLOQUEADO, Filter.DESPERTAR, Filter.FINALIZADO,
         Filter.PRIORIDAD_CAMBIADA, Filter.SUSPENDIDO, Filter.REANUDADO, Filter.DESTRUIDO,
-        Filter.TODO // Usamos TODO para referencias ya que no es un filtro específico
+        Filter.TODO 
     };
 
     private String currentAction;
@@ -85,7 +85,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         // Tabla de procesos
         processTableModel = new DefaultTableModel(
-            new String[]{"Nombre", "Tiempo", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Referencia"}, 0) {
+            new String[]{"Nombre", "Tiempo", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Comunicacion"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -104,7 +104,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             if (i < 8) {
                 // Tablas de estados de ejecución
                 resultTableModels[i] = new DefaultTableModel(
-                    new String[]{"Proceso", "Tiempo Restante", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Referencia", "Ciclos"}, 0) {
+                    new String[]{"Proceso", "Tiempo Restante", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Comunicacion", "Ciclos"}, 0) {
                     @Override
                     public boolean isCellEditable(int row, int column) {
                         return false;
@@ -226,7 +226,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         // Panel del título
         JPanel titlePanel = new JPanel();
         titlePanel.setBackground(new Color(44, 62, 80));
-        JLabel titleLabel = new JLabel("SIMULADOR DE PROCESOS AVANZADO");
+        JLabel titleLabel = new JLabel("SIMULADOR DE PROCESOS");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
         titleLabel.setForeground(Color.WHITE);
         titlePanel.add(titleLabel);
@@ -318,7 +318,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         row++;
 
         gbc.gridx = 0; gbc.gridy = row;
-        panel.add(new JLabel("Proceso Referencia:"), gbc);
+        panel.add(new JLabel("Comunicar proceso:"), gbc);
         gbc.gridx = 1;
         panel.add(cmbReferencedProcess, gbc);
 
@@ -498,35 +498,41 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private JDialog createEditDialog(model.Process process, int selectedRow) {
         JDialog dialog = new JDialog(this, "Modificar Proceso", true);
         dialog.setLayout(new GridBagLayout());
-        dialog.setSize(400, 600);
+        dialog.setSize(450, 650);
         dialog.setLocationRelativeTo(this);
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(8, 10, 8, 10); 
 
-        // Campos de edición
-        JTextField txtEditName = new JTextField(process.getName(), 15);
+        
+        JTextField txtEditName = new JTextField(process.getName(), 20); // Aumentamos tamaño
         txtEditName.setEditable(false);
         txtEditName.setBackground(Color.LIGHT_GRAY);
 
-        JTextField txtEditTime = new JTextField(String.valueOf(process.getOriginalTime()), 15);
-        JTextField txtEditPriority = new JTextField(String.valueOf(process.getInitialPriority()), 15);
-        JTextField txtEditPriorityChange = new JTextField();
+        JTextField txtEditTime = new JTextField(String.valueOf(process.getOriginalTime()), 20);
+        JTextField txtEditPriority = new JTextField(String.valueOf(process.getInitialPriority()), 20);
+        
+       
+        JTextField txtEditPriorityChange = new JTextField(25);
         if (process.hasPriorityChange()) {
             txtEditPriorityChange.setText(String.valueOf(process.getFinalPriority()));
         }
 
         JComboBox<String> cmbEditStatus = new JComboBox<>(new String[]{"No Bloqueado", "Bloqueado"});
         cmbEditStatus.setSelectedIndex(process.isBlocked() ? 1 : 0);
+        cmbEditStatus.setPreferredSize(new Dimension(200, 25)); 
 
         JComboBox<String> cmbEditSuspended = new JComboBox<>(new String[]{"No", "Si"});
         cmbEditSuspended.setSelectedIndex(process.isSuspended() ? 1 : 0);
+        cmbEditSuspended.setPreferredSize(new Dimension(200, 25));
 
         JComboBox<String> cmbEditResumed = new JComboBox<>(new String[]{"No", "Si"});
         cmbEditResumed.setSelectedIndex(process.isResumed() ? 1 : 0);
+        cmbEditResumed.setPreferredSize(new Dimension(200, 25));
 
         JComboBox<String> cmbEditDestroyed = new JComboBox<>(new String[]{"No", "Si"});
         cmbEditDestroyed.setSelectedIndex(process.isDestroyed() ? 1 : 0);
+        cmbEditDestroyed.setPreferredSize(new Dimension(200, 25));
 
         JComboBox<String> cmbEditReference = new JComboBox<>();
         cmbEditReference.addItem("Ninguno");
@@ -535,11 +541,12 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 cmbEditReference.addItem(p.getName());
             }
         }
+        cmbEditReference.setPreferredSize(new Dimension(200, 25));
         if (process.hasReference()) {
             cmbEditReference.setSelectedItem(process.getReferencedProcess());
         }
 
-        // Agregar componentes al diálogo
+        
         int row = 0;
         addDialogComponent(dialog, gbc, "Nombre:", txtEditName, row++);
         addDialogComponent(dialog, gbc, "Tiempo:", txtEditTime, row++);
@@ -549,12 +556,17 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         addDialogComponent(dialog, gbc, "Suspendido:", cmbEditSuspended, row++);
         addDialogComponent(dialog, gbc, "Reanudado:", cmbEditResumed, row++);
         addDialogComponent(dialog, gbc, "Destruido:", cmbEditDestroyed, row++);
-        addDialogComponent(dialog, gbc, "Referencia:", cmbEditReference, row++);
+        addDialogComponent(dialog, gbc, "Comunicacion:", cmbEditReference, row++);
 
-        // Botones
-        JPanel buttonPanel = new JPanel();
+        
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         JButton btnSave = new JButton("Guardar");
         JButton btnCancel = new JButton("Cancelar");
+        
+      
+        Dimension buttonSize = new Dimension(100, 30);
+        btnSave.setPreferredSize(buttonSize);
+        btnCancel.setPreferredSize(buttonSize);
 
         btnSave.addActionListener(e -> {
             if (saveEditedProcess(dialog, process, selectedRow, txtEditTime, txtEditPriority, 
@@ -570,17 +582,47 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         buttonPanel.add(btnCancel);
 
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
+        gbc.insets = new Insets(20, 10, 10, 10); 
         dialog.add(buttonPanel, gbc);
+
+        
+        dialog.addKeyListener(new KeyListener() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    btnSave.doClick(); 
+                } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    dialog.dispose(); 
+                }
+            }
+            
+            @Override
+            public void keyTyped(KeyEvent e) {}
+            
+            @Override
+            public void keyReleased(KeyEvent e) {}
+        });
+        
+        dialog.setFocusable(true);
+        dialog.requestFocus();
 
         return dialog;
     }
 
     private void addDialogComponent(JDialog dialog, GridBagConstraints gbc, String label, JComponent component, int row) {
-        gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1;
-        dialog.add(new JLabel(label), gbc);
-        gbc.gridx = 1;
-        dialog.add(component, gbc);
-    }
+    gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 1;
+    gbc.anchor = GridBagConstraints.EAST; 
+    gbc.fill = GridBagConstraints.NONE;
+    
+    JLabel lblComponent = new JLabel(label);
+    lblComponent.setPreferredSize(new Dimension(120, 25)); 
+    dialog.add(lblComponent, gbc);
+    
+    gbc.gridx = 1;
+    gbc.anchor = GridBagConstraints.WEST; 
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    dialog.add(component, gbc);
+}
 
     private boolean saveEditedProcess(JDialog dialog, model.Process originalProcess, int selectedRow,
                                     JTextField txtTime, JTextField txtPriority, JTextField txtPriorityChange,
@@ -652,9 +694,9 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         String processName = (String) processTableModel.getValueAt(selectedRow, 0);
         
-        // NUEVA VALIDACIÓN: Verificar si el proceso está siendo referenciado
+        
         if (processManager.isProcessReferenced(processName)) {
-            showError("No se puede eliminar el proceso '" + processName + "' porque está siendo referenciado por otros procesos.");
+            showError("No se puede eliminar el proceso '" + processName + "' porque está siendo comunicado por otros procesos.");
             return;
         }
         
@@ -822,18 +864,18 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     });
                 }
                 break;
-            case 12: // NUEVO: Referencias
+            case 12:
                 List<String> relations = processManager.getProcessRelationsReport();
                 if (relations.isEmpty()) {
                     resultTableModels[tableIndex].addRow(new Object[]{
-                        "Sin referencias", "No hay procesos con referencias"
+                        "Sin Comunicacion", "No hay procesos con referencias"
                     });
                 } else {
                     for (String relation : relations) {
                         String[] parts = relation.split(" -> ");
                         if (parts.length == 2) {
                             resultTableModels[tableIndex].addRow(new Object[]{
-                                parts[0], "Referencia a: " + parts[1]
+                                parts[0], "Comunica con: " + parts[1]
                             });
                         }
                     }
