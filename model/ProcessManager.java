@@ -1,20 +1,70 @@
 package model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ProcessManager {
     private ArrayList<Process> initialProcesses;
     private ArrayList<Log> executionLogs;
+    private Map<String, List<String>> processRelations; 
 
     public ProcessManager() {
         initialProcesses = new ArrayList<>();
         executionLogs = new ArrayList<>();
+        processRelations = new HashMap<>();
     }
 
+ 
     public void addProcess(String name, int time, Status status) {
         Process process = new Process(name, time, status);
         initialProcesses.add(process);
+    }
+
+ 
+    public void addProcess(String name, int time, Status status, int finalPriority, 
+                          Status suspended, Status resumed, Status destroyed, String referencedProcess) {
+        
+      
+        Process process = new Process(name, time, status, 1, suspended, resumed, destroyed, referencedProcess);
+        
+        
+        if (finalPriority != 1) {
+            process.setFinalPriority(finalPriority);
+            System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: 1 -> " + finalPriority);
+        }
+        
+        initialProcesses.add(process);
+        
+       
+        if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
+            addProcessRelation(name, referencedProcess);
+        }
+    }
+
+   
+    public void addProcess(String name, int time, Status status, int initialPriority, int finalPriority, 
+                          Status suspended, Status resumed, Status destroyed, String referencedProcess) {
+        
+        Process process = new Process(name, time, status, initialPriority, suspended, resumed, destroyed, referencedProcess);
+        
+       
+        if (finalPriority != initialPriority) {
+            process.setFinalPriority(finalPriority);
+            System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: " + initialPriority + " -> " + finalPriority);
+        }
+        
+        initialProcesses.add(process);
+        
+    
+        if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
+            addProcessRelation(name, referencedProcess);
+        }
+    }
+
+    private void addProcessRelation(String process, String referencedProcess) {
+        processRelations.computeIfAbsent(process, k -> new ArrayList<>()).add(referencedProcess);
     }
 
     public boolean processExists(String name) {
@@ -22,18 +72,55 @@ public class ProcessManager {
                 .anyMatch(p -> p.getName().equalsIgnoreCase(name.trim()));
     }
 
+    public boolean priorityExists(int priority) {
+        return initialProcesses.stream()
+                .anyMatch(p -> p.getFinalPriority() == priority);
+    }
+
     public void removeProcess(String name) {
         initialProcesses.removeIf(p -> p.getName().equalsIgnoreCase(name.trim()));
+        
+        processRelations.remove(name);
+        processRelations.values().forEach(list -> list.removeIf(ref -> ref.equalsIgnoreCase(name.trim())));
     }
 
     public void editProcess(int position, String processName, int newTime, Status newStatus) {
         if (position >= 0 && position < initialProcesses.size()) {
             Process existingProcess = initialProcesses.get(position);
             if (existingProcess.getName().equalsIgnoreCase(processName)) {
-                // Crear nuevo proceso con los datos actualizados pero manteniendo el nombre
+                
                 Process updatedProcess = new Process(processName, newTime, newStatus);
-                // Reemplazar en la misma posición
+               
                 initialProcesses.set(position, updatedProcess);
+            }
+        }
+    }
+
+    public void editProcess(int position, String processName, int newTime, Status newStatus, 
+                           int finalPriority, Status suspended, Status resumed, Status destroyed, String referencedProcess) {
+        if (position >= 0 && position < initialProcesses.size()) {
+            Process existingProcess = initialProcesses.get(position);
+            if (existingProcess.getName().equalsIgnoreCase(processName)) {
+                
+            
+                processRelations.remove(processName);
+                
+         
+                int originalInitialPriority = existingProcess.getInitialPriority();
+                
+            
+                Process updatedProcess = new Process(processName, newTime, newTime, newStatus, 0,
+                                                   originalInitialPriority, finalPriority, suspended, resumed, destroyed, referencedProcess);
+                
+                
+                initialProcesses.set(position, updatedProcess);
+                
+               
+                if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
+                    addProcessRelation(processName, referencedProcess);
+                }
+                
+                System.out.println("DEBUG: Proceso " + processName + " editado. Prioridad: " + originalInitialPriority + " -> " + finalPriority + " (Cambio: " + updatedProcess.hasPriorityChange() + ")");
             }
         }
     }
@@ -42,10 +129,20 @@ public class ProcessManager {
         return initialProcesses.isEmpty();
     }
 
-    
     public void runSimulation() {
         executionLogs.clear();
+        
+       
         ArrayList<Process> processQueue = cloneProcesses();
+        processQueue.sort((a, b) -> Integer.compare(a.getFinalPriority(), b.getFinalPriority()));
+        
+      
+        for (Process p : processQueue) {
+            if (p.hasPriorityChange()) {
+                addLog(p, Filter.PRIORIDAD_CAMBIADA);
+                System.out.println("DEBUG: Agregando log de prioridad cambiada para " + p.getName());
+            }
+        }
         
         while (!processQueue.isEmpty()) {
             Process currentProcess = processQueue.remove(0);
@@ -62,17 +159,33 @@ public class ProcessManager {
     }
 
     private void executeProcessCycle(Process process, ArrayList<Process> queue) {
-        
+      
         addLog(process, Filter.LISTO);
+
+     
+        if (process.isSuspended()) {
+            addLog(process, Filter.SUSPENDIDO);
+        }
+
+        
+        if (process.isResumed()) {
+            addLog(process, Filter.REANUDADO);
+        }
 
        
         addLog(process, Filter.DESPACHADO);
 
-     
+       
         process.subtractTime(Constants.QUANTUM_TIME);
         addLog(process, Filter.EN_EJECUCION);
 
-        
+       
+        if (process.isDestroyed()) {
+            addLog(process, Filter.DESTRUIDO);
+            return; 
+        }
+
+       
         if (process.isFinished()) {
             addLog(process, Filter.FINALIZADO);
         } else {
@@ -83,8 +196,18 @@ public class ProcessManager {
             } else {
                 addLog(process, Filter.TIEMPO_EXPIRADO);
             }
-            queue.add(process);
+            
+            insertByPriority(queue, process);
         }
+    }
+
+    private void insertByPriority(ArrayList<Process> queue, Process process) {
+        int insertIndex = 0;
+        while (insertIndex < queue.size() && 
+               queue.get(insertIndex).getFinalPriority() <= process.getFinalPriority()) {
+            insertIndex++;
+        }
+        queue.add(insertIndex, process);
     }
 
     private void addLog(Process process, Filter filter) {
@@ -92,7 +215,6 @@ public class ProcessManager {
         executionLogs.add(log);
     }
 
-    //Filtrar los logs
     public List<Log> getLogsByFilter(Filter filter) {
         if (filter == Filter.TODO) {
             return new ArrayList<>(executionLogs);
@@ -103,7 +225,63 @@ public class ProcessManager {
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
 
+ 
+    public List<Process> getProcessesWithPriorityChanges() {
+        System.out.println("DEBUG: Buscando procesos con cambio de prioridad...");
+        List<Process> result = new ArrayList<>();
+        for (Process p : initialProcesses) {
+            System.out.println("DEBUG: Proceso " + p.getName() + " - Inicial: " + p.getInitialPriority() + ", Final: " + p.getFinalPriority() + ", Tiene cambio: " + p.hasPriorityChange());
+            if (p.hasPriorityChange()) {
+                result.add(p);
+            }
+        }
+        System.out.println("DEBUG: Encontrados " + result.size() + " procesos con cambio de prioridad");
+        return result;
+    }
+
+
+    public List<String> getProcessRelationsReport() {
+        List<String> report = new ArrayList<>();
+        
+        for (Map.Entry<String, List<String>> entry : processRelations.entrySet()) {
+            String process = entry.getKey();
+            List<String> references = entry.getValue();
+            
+            if (!references.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                sb.append(process).append(" -> ");
+                for (int i = 0; i < references.size(); i++) {
+                    sb.append(references.get(i));
+                    if (i < references.size() - 1) {
+                        sb.append(", ");
+                    }
+                }
+                report.add(sb.toString());
+            }
+        }
+        
+        return report;
+    }
+
    
+    public List<Process> getSuspendedProcesses() {
+        return initialProcesses.stream()
+                .filter(Process::isSuspended)
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+    }
+
+    public List<Process> getResumedProcesses() {
+        return initialProcesses.stream()
+                .filter(Process::isResumed)
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+    }
+
+    public List<Process> getDestroyedProcesses() {
+        return initialProcesses.stream()
+                .filter(Process::isDestroyed)
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+    }
+
     public ArrayList<Process> getInitialProcesses() {
         return new ArrayList<>(initialProcesses);
     }
@@ -112,10 +290,10 @@ public class ProcessManager {
         return new ArrayList<>(executionLogs);
     }
 
-    
     public void clearAll() {
         initialProcesses.clear();
         executionLogs.clear();
+        processRelations.clear();
     }
 
     public void clearLogs() {

@@ -7,6 +7,7 @@ public class Log {
     private Filter filter;
     private int cycleCount;
     private long timestamp;
+    private int priority; 
 
     public Log(Process process, Filter filter) {
         this.processName = process.getName();
@@ -15,9 +16,9 @@ public class Log {
         this.cycleCount = process.getCycleCount();
         this.filter = filter;
         this.timestamp = System.currentTimeMillis();
+        this.priority = process.getFinalPriority();
     }
 
-  
     public String getProcessName() {
         return processName;
     }
@@ -46,6 +47,10 @@ public class Log {
         return timestamp;
     }
 
+    public int getPriority() {
+        return priority;
+    }
+
     @Override
     public String toString() {
         return "Log{" +
@@ -54,6 +59,7 @@ public class Log {
                 ", status=" + status +
                 ", filter=" + filter +
                 ", cycleCount=" + cycleCount +
+                ", priority=" + priority +
                 '}';
     }
 }

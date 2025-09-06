@@ -1,6 +1,7 @@
 package model;
 
 public enum Filter {
+    
     INICIAL,
     LISTO,
     DESPACHADO,
@@ -9,5 +10,9 @@ public enum Filter {
     BLOQUEADO,
     DESPERTAR,
     FINALIZADO,
-    TODO
+    TODO,
+    PRIORIDAD_CAMBIADA,
+    SUSPENDIDO,
+    REANUDADO,
+    DESTRUIDO
 }
