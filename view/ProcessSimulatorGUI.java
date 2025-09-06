@@ -11,13 +11,14 @@ import java.awt.event.KeyListener;
 import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private ProcessManager processManager;
     
-   
+    // Campos de entrada
     private JTextField txtProcessName;
     private JTextField txtProcessTime;
     private JTextField txtPriority;
@@ -28,25 +29,26 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private JComboBox<String> cmbDestroyed;
     private JComboBox<String> cmbReferencedProcess;
     
-  
+    // Tabla de procesos
     private DefaultTableModel processTableModel;
     private JTable processTable;
     
-    
+    // Panel de resultados
     private JPanel resultsPanel;
     private CardLayout cardLayout;
     
-    
+    // Tablas de resultados - AGREGAMOS UNA MÁS PARA REFERENCIAS
     private DefaultTableModel[] resultTableModels;
     private String[] tableNames = {
         "Inicial", "Listos", "Despachados", "En Ejecución", 
         "Tiempo Expirado", "Bloqueados", "Despertar", "Finalizados",
-        "Prioridad Cambiada", "Suspendidos", "Reanudados", "Destruidos"
+        "Prioridad Cambiada", "Suspendidos", "Reanudados", "Destruidos", "Referencias"
     };
     private Filter[] filters = {
         Filter.INICIAL, Filter.LISTO, Filter.DESPACHADO, Filter.EN_EJECUCION,
         Filter.TIEMPO_EXPIRADO, Filter.BLOQUEADO, Filter.DESPERTAR, Filter.FINALIZADO,
-        Filter.PRIORIDAD_CAMBIADA, Filter.SUSPENDIDO, Filter.REANUDADO, Filter.DESTRUIDO
+        Filter.PRIORIDAD_CAMBIADA, Filter.SUSPENDIDO, Filter.REANUDADO, Filter.DESTRUIDO,
+        Filter.TODO // Usamos TODO para referencias ya que no es un filtro específico
     };
 
     private String currentAction;
@@ -66,10 +68,10 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private void initializeComponents() {
         setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-    
+        // Campos de entrada
         txtProcessName = new JTextField(15);
         txtProcessTime = new JTextField(15);
-        txtPriority = new JTextField("1", 15);
+        txtPriority = new JTextField(15);
         txtPriorityChange = new JTextField(15);
         cmbStatus = new JComboBox<>(new String[]{"No Bloqueado", "Bloqueado"});
         cmbSuspended = new JComboBox<>(new String[]{"No", "Si"});
@@ -81,7 +83,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         setupPriorityFields();
         updateReferencedProcessCombo();
 
-       
+        // Tabla de procesos
         processTableModel = new DefaultTableModel(
             new String[]{"Nombre", "Tiempo", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Referencia"}, 0) {
             @Override
@@ -92,24 +94,24 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         processTable = new JTable(processTableModel);
         processTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
-       
+        // Panel de resultados
         cardLayout = new CardLayout();
         resultsPanel = new JPanel(cardLayout);
         
-       
+        // Inicializar tablas de resultados - AHORA CON 13 TABLAS
         resultTableModels = new DefaultTableModel[tableNames.length];
         for (int i = 0; i < tableNames.length; i++) {
             if (i < 8) {
-                
+                // Tablas de estados de ejecución
                 resultTableModels[i] = new DefaultTableModel(
-                    new String[]{"Proceso", "Tiempo Restante", "Prioridad", "Estado", "Ciclos"}, 0) {
+                    new String[]{"Proceso", "Tiempo Restante", "Prioridad", "Estado", "Suspendido", "Reanudado", "Destruido", "Referencia", "Ciclos"}, 0) {
                     @Override
                     public boolean isCellEditable(int row, int column) {
                         return false;
                     }
                 };
             } else {
-               
+                // Tablas de reportes especiales
                 resultTableModels[i] = new DefaultTableModel(
                     new String[]{"Proceso", "Información"}, 0) {
                     @Override
@@ -184,7 +186,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     }
                 }
             } catch (NumberFormatException ex) {
-                
+                // Ignorar errores de formato
             }
         }
     }
@@ -221,7 +223,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private void setupLayout() {
         setLayout(new BorderLayout());
 
-       
+        // Panel del título
         JPanel titlePanel = new JPanel();
         titlePanel.setBackground(new Color(44, 62, 80));
         JLabel titleLabel = new JLabel("SIMULADOR DE PROCESOS AVANZADO");
@@ -229,7 +231,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         titleLabel.setForeground(Color.WHITE);
         titlePanel.add(titleLabel);
 
-      
+        // Panel izquierdo
         JPanel leftPanel = new JPanel(new BorderLayout());
         leftPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         leftPanel.setPreferredSize(new Dimension(500, 0));
@@ -244,16 +246,12 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         JPanel actionPanel = createActionPanel();
         leftPanel.add(actionPanel, BorderLayout.SOUTH);
 
-        
+        // Panel derecho
         JPanel rightPanel = new JPanel(new BorderLayout());
         rightPanel.setBorder(BorderFactory.createTitledBorder("Resultados de la Simulación"));
 
         JPanel buttonPanel = createResultButtonPanel();
         rightPanel.add(buttonPanel, BorderLayout.NORTH);
-        
-    
-        JPanel reportsPanel = createReportsPanel();
-        rightPanel.add(reportsPanel, BorderLayout.SOUTH);
         
         rightPanel.add(resultsPanel, BorderLayout.CENTER);
 
@@ -270,7 +268,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         int row = 0;
         
-    
+        // Campos del formulario
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Nombre:"), gbc);
         gbc.gridx = 1;
@@ -365,6 +363,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     }
 
     private JPanel createResultButtonPanel() {
+        // CAMBIO: Ahora con 13 botones organizados en 3 filas
         JPanel panel = new JPanel(new GridLayout(3, 5, 5, 5)); 
         
         for (int i = 0; i < tableNames.length; i++) {
@@ -381,24 +380,8 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         return panel;
     }
 
-    private JPanel createReportsPanel() {
-        JPanel panel = new JPanel(new FlowLayout());
-        panel.setBorder(BorderFactory.createTitledBorder("Reportes Especiales"));
-        
-        JButton btnRelationsReport = new JButton("Reporte de Referencias");
-        btnRelationsReport.addActionListener(e -> showRelationsReport());
-        
-        JButton btnPriorityReport = new JButton("Reporte de Prioridades");
-        btnPriorityReport.addActionListener(e -> showPriorityReport());
-        
-        panel.add(btnRelationsReport);
-        panel.add(btnPriorityReport);
-        
-        return panel;
-    }
-
     private void setupEventHandlers() {
-        
+        // Configuración de eventos adicionales si es necesario
     }
 
     private void addProcess() {
@@ -406,7 +389,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         String timeText = txtProcessTime.getText().trim();
         String priorityText = txtPriority.getText().trim();
 
-      
+        // Validaciones
         if (name.isEmpty()) {
             showError("El nombre del proceso no puede estar vacío");
             return;
@@ -447,7 +430,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             Status destroyed = cmbDestroyed.getSelectedIndex() == 0 ? 
                 Status.NO_DESTRUIDO : Status.DESTRUIDO;
 
-           
+            // Validar que un proceso no puede ser reanudado sin estar suspendido
             if (resumed == Status.REANUDADO && suspended == Status.NO_SUSPENDIDO) {
                 showError("Un proceso no puede ser reanudado sin estar suspendido");
                 return;
@@ -460,7 +443,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
             int finalPriority = priority;
             
-       
+            // Manejar cambio de prioridad
             String priorityChangeText = txtPriorityChange.getText().trim();
             if (!priorityChangeText.isEmpty()) {
                 try {
@@ -474,7 +457,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 }
             }
 
-          
+            // Agregar proceso
             processManager.addProcess(name, time, status, priority, finalPriority, 
                                     suspended, resumed, destroyed, referencedProcess);
             
@@ -507,7 +490,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         if (selectedProcess == null) return;
 
-        
+        // Crear diálogo de edición
         JDialog editDialog = createEditDialog(selectedProcess, selectedRow);
         editDialog.setVisible(true);
     }
@@ -521,7 +504,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
 
-       
+        // Campos de edición
         JTextField txtEditName = new JTextField(process.getName(), 15);
         txtEditName.setEditable(false);
         txtEditName.setBackground(Color.LIGHT_GRAY);
@@ -556,7 +539,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             cmbEditReference.setSelectedItem(process.getReferencedProcess());
         }
 
-       
+        // Agregar componentes al diálogo
         int row = 0;
         addDialogComponent(dialog, gbc, "Nombre:", txtEditName, row++);
         addDialogComponent(dialog, gbc, "Tiempo:", txtEditTime, row++);
@@ -568,7 +551,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         addDialogComponent(dialog, gbc, "Destruido:", cmbEditDestroyed, row++);
         addDialogComponent(dialog, gbc, "Referencia:", cmbEditReference, row++);
 
-      
+        // Botones
         JPanel buttonPanel = new JPanel();
         JButton btnSave = new JButton("Guardar");
         JButton btnCancel = new JButton("Cancelar");
@@ -668,8 +651,14 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         }
 
         String processName = (String) processTableModel.getValueAt(selectedRow, 0);
-        currentAction = "DELETE_PROCESS:" + processName;
         
+        // NUEVA VALIDACIÓN: Verificar si el proceso está siendo referenciado
+        if (processManager.isProcessReferenced(processName)) {
+            showError("No se puede eliminar el proceso '" + processName + "' porque está siendo referenciado por otros procesos.");
+            return;
+        }
+        
+        currentAction = "DELETE_PROCESS:" + processName;
         new CustomDialog(this, "¿Está seguro de que desea eliminar el proceso '" + processName + "'?", CustomDialog.CONFIRM_TYPE);
     }
 
@@ -679,7 +668,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             return;
         }
 
-        
+        // Debug antes de la simulación
         List<model.Process> priorityChangesBeforeSim = processManager.getProcessesWithPriorityChanges();
         System.out.println("Procesos con cambio de prioridad antes de simulación: " + priorityChangesBeforeSim.size());
         for (model.Process p : priorityChangesBeforeSim) {
@@ -688,16 +677,16 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         processManager.runSimulation();
         
-       
+        // Debug después de la simulación
         List<Log> priorityLogs = processManager.getLogsByFilter(Filter.PRIORIDAD_CAMBIADA);
         System.out.println("Logs de prioridad cambiada después de simulación: " + priorityLogs.size());
         
-      
+        // Actualizar todas las tablas de resultados
         for (int i = 0; i < tableNames.length; i++) {
             updateResultTable(i);
         }
         
-        cardLayout.show(resultsPanel, tableNames[1]); 
+        cardLayout.show(resultsPanel, tableNames[1]); // Mostrar "Listos"
         showInfo("Simulación ejecutada exitosamente. Procesos con cambio de prioridad: " + priorityChangesBeforeSim.size());
     }
 
@@ -726,39 +715,81 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
     private void updateResultTable(int tableIndex) {
         if (tableIndex == 0) {
-           
+            // Tabla inicial - MOSTRAR ORDENADOS POR PRIORIDAD CON TODAS LAS COLUMNAS
             resultTableModels[0].setRowCount(0);
-            for (model.Process p : processManager.getInitialProcesses()) {
+            
+            // Crear una copia de los procesos y ordenarlos por prioridad
+            List<model.Process> sortedProcesses = new ArrayList<>(processManager.getInitialProcesses());
+            sortedProcesses.sort((a, b) -> Integer.compare(a.getFinalPriority(), b.getFinalPriority()));
+            
+            // Agregar los procesos ordenados a la tabla con TODAS las columnas
+            for (model.Process p : sortedProcesses) {
                 String formattedTime = numberFormatter.format(p.getOriginalTime());
+                String reference = p.hasReference() ? p.getReferencedProcess() : "Ninguno";
+                
                 resultTableModels[0].addRow(new Object[]{
-                    p.getName(), formattedTime, p.getFinalPriority(), p.getStatusString(), 0
+                    p.getName(),                    // Proceso
+                    formattedTime,                  // Tiempo Restante
+                    p.getFinalPriority(),          // Prioridad
+                    p.getStatusString(),           // Estado (Bloqueado/No Bloqueado)
+                    p.getSuspendedString(),        // Suspendido (Si/No)
+                    p.getResumedString(),          // Reanudado (Si/No)
+                    p.getDestroyedString(),        // Destruido (Si/No)
+                    reference,                      // Referencia
+                    0                              // Ciclos (siempre 0 al inicio)
                 });
             }
         } else if (tableIndex < 8) {
-            
+            // Tablas de estados de ejecución (Listos, Despachados, etc.) - CON TODAS LAS COLUMNAS
             List<Log> logs = processManager.getLogsByFilter(filters[tableIndex]);
             resultTableModels[tableIndex].setRowCount(0);
             for (Log log : logs) {
                 String formattedTime = numberFormatter.format(log.getRemainingTime());
+                
+                // Buscar el proceso original para obtener la información completa
+                model.Process originalProcess = null;
+                for (model.Process p : processManager.getInitialProcesses()) {
+                    if (p.getName().equals(log.getProcessName())) {
+                        originalProcess = p;
+                        break;
+                    }
+                }
+                
+                String reference = "Ninguno";
+                String suspended = "No";
+                String resumed = "No";
+                String destroyed = "No";
+                
+                if (originalProcess != null) {
+                    reference = originalProcess.hasReference() ? originalProcess.getReferencedProcess() : "Ninguno";
+                    suspended = originalProcess.getSuspendedString();
+                    resumed = originalProcess.getResumedString();
+                    destroyed = originalProcess.getDestroyedString();
+                }
+                
                 resultTableModels[tableIndex].addRow(new Object[]{
-                    log.getProcessName(),
-                    formattedTime,
-                    log.getPriority(),
-                    log.getStatusString(),
-                    log.getCycleCount()
+                    log.getProcessName(),          // Proceso
+                    formattedTime,                 // Tiempo Restante
+                    log.getPriority(),            // Prioridad
+                    log.getStatusString(),        // Estado
+                    suspended,                     // Suspendido
+                    resumed,                       // Reanudado
+                    destroyed,                     // Destruido
+                    reference,                     // Referencia
+                    log.getCycleCount()           // Ciclos
                 });
             }
         } else {
-           
+            // Tablas de reportes especiales
             updateSpecialReportTable(tableIndex);
         }
-    }
+}
 
     private void updateSpecialReportTable(int tableIndex) {
         resultTableModels[tableIndex].setRowCount(0);
         
         switch (tableIndex) {
-            case 8: 
+            case 8: // Prioridad Cambiada
                 List<model.Process> priorityChanges = processManager.getProcessesWithPriorityChanges();
                 for (model.Process p : priorityChanges) {
                     resultTableModels[tableIndex].addRow(new Object[]{
@@ -767,7 +798,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     });
                 }
                 break;
-            case 9: 
+            case 9: // Suspendidos
                 List<model.Process> suspended = processManager.getSuspendedProcesses();
                 for (model.Process p : suspended) {
                     resultTableModels[tableIndex].addRow(new Object[]{
@@ -775,7 +806,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     });
                 }
                 break;
-            case 10: 
+            case 10: // Reanudados
                 List<model.Process> resumed = processManager.getResumedProcesses();
                 for (model.Process p : resumed) {
                     resultTableModels[tableIndex].addRow(new Object[]{
@@ -783,7 +814,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     });
                 }
                 break;
-            case 11: 
+            case 11: // Destruidos
                 List<model.Process> destroyed = processManager.getDestroyedProcesses();
                 for (model.Process p : destroyed) {
                     resultTableModels[tableIndex].addRow(new Object[]{
@@ -791,60 +822,24 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                     });
                 }
                 break;
+            case 12: // NUEVO: Referencias
+                List<String> relations = processManager.getProcessRelationsReport();
+                if (relations.isEmpty()) {
+                    resultTableModels[tableIndex].addRow(new Object[]{
+                        "Sin referencias", "No hay procesos con referencias"
+                    });
+                } else {
+                    for (String relation : relations) {
+                        String[] parts = relation.split(" -> ");
+                        if (parts.length == 2) {
+                            resultTableModels[tableIndex].addRow(new Object[]{
+                                parts[0], "Referencia a: " + parts[1]
+                            });
+                        }
+                    }
+                }
+                break;
         }
-    }
-
-    private void showRelationsReport() {
-        List<String> relations = processManager.getProcessRelationsReport();
-        
-        if (relations.isEmpty()) {
-            showInfo("No hay referencias entre procesos");
-            return;
-        }
-
-        StringBuilder report = new StringBuilder("REPORTE DE REFERENCIAS:\n\n");
-        for (String relation : relations) {
-            report.append(relation).append("\n");
-        }
-
-        JDialog dialog = new JDialog(this, "Reporte de Referencias", true);
-        dialog.setSize(400, 300);
-        dialog.setLocationRelativeTo(this);
-        
-        JTextArea textArea = new JTextArea(report.toString());
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        
-        dialog.add(new JScrollPane(textArea));
-        dialog.setVisible(true);
-    }
-
-    private void showPriorityReport() {
-        List<model.Process> priorityChanges = processManager.getProcessesWithPriorityChanges();
-        
-        if (priorityChanges.isEmpty()) {
-            showInfo("No hay cambios de prioridad");
-            return;
-        }
-
-        StringBuilder report = new StringBuilder("REPORTE DE CAMBIOS DE PRIORIDAD:\n\n");
-        for (model.Process p : priorityChanges) {
-            report.append("Proceso: ").append(p.getName())
-                  .append(" | Prioridad inicial: ").append(p.getInitialPriority())
-                  .append(" | Prioridad final: ").append(p.getFinalPriority())
-                  .append("\n");
-        }
-
-        JDialog dialog = new JDialog(this, "Reporte de Prioridades", true);
-        dialog.setSize(500, 300);
-        dialog.setLocationRelativeTo(this);
-        
-        JTextArea textArea = new JTextArea(report.toString());
-        textArea.setEditable(false);
-        textArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        
-        dialog.add(new JScrollPane(textArea));
-        dialog.setVisible(true);
     }
 
     private void clearAll() {
@@ -855,7 +850,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private void clearForm() {
         txtProcessName.setText("");
         txtProcessTime.setText("");
-        txtPriority.setText("1");
+        txtPriority.setText("");
         txtPriorityChange.setText("");
         cmbStatus.setSelectedIndex(0);
         cmbSuspended.setSelectedIndex(0);

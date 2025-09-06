@@ -16,20 +16,20 @@ public class ProcessManager {
         processRelations = new HashMap<>();
     }
 
- 
+    // Agregar proceso básico
     public void addProcess(String name, int time, Status status) {
         Process process = new Process(name, time, status);
         initialProcesses.add(process);
     }
 
- 
+    // Agregar proceso con parámetros avanzados
     public void addProcess(String name, int time, Status status, int finalPriority, 
                           Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         
-      
+        // Crear proceso con prioridad inicial 1
         Process process = new Process(name, time, status, 1, suspended, resumed, destroyed, referencedProcess);
         
-        
+        // Si la prioridad final es diferente de 1, establecer el cambio
         if (finalPriority != 1) {
             process.setFinalPriority(finalPriority);
             System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: 1 -> " + finalPriority);
@@ -37,19 +37,19 @@ public class ProcessManager {
         
         initialProcesses.add(process);
         
-       
+        // Manejar referencias entre procesos
         if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
             addProcessRelation(name, referencedProcess);
         }
     }
 
-   
+    // Agregar proceso con prioridades inicial y final específicas
     public void addProcess(String name, int time, Status status, int initialPriority, int finalPriority, 
                           Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         
         Process process = new Process(name, time, status, initialPriority, suspended, resumed, destroyed, referencedProcess);
         
-       
+        // Si hay cambio de prioridad, establecerlo
         if (finalPriority != initialPriority) {
             process.setFinalPriority(finalPriority);
             System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: " + initialPriority + " -> " + finalPriority);
@@ -57,7 +57,7 @@ public class ProcessManager {
         
         initialProcesses.add(process);
         
-    
+        // Manejar referencias entre procesos
         if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
             addProcessRelation(name, referencedProcess);
         }
@@ -77,9 +77,17 @@ public class ProcessManager {
                 .anyMatch(p -> p.getFinalPriority() == priority);
     }
 
+    // Verificar si un proceso está siendo referenciado por otros
+    public boolean isProcessReferenced(String processName) {
+        return initialProcesses.stream()
+                .anyMatch(p -> p.hasReference() && 
+                         p.getReferencedProcess().equalsIgnoreCase(processName.trim()));
+    }
+
     public void removeProcess(String name) {
         initialProcesses.removeIf(p -> p.getName().equalsIgnoreCase(name.trim()));
         
+        // Limpiar referencias
         processRelations.remove(name);
         processRelations.values().forEach(list -> list.removeIf(ref -> ref.equalsIgnoreCase(name.trim())));
     }
@@ -88,9 +96,9 @@ public class ProcessManager {
         if (position >= 0 && position < initialProcesses.size()) {
             Process existingProcess = initialProcesses.get(position);
             if (existingProcess.getName().equalsIgnoreCase(processName)) {
-                
+                // Crear proceso básico actualizado
                 Process updatedProcess = new Process(processName, newTime, newStatus);
-               
+                // Mantener la configuración del proceso original
                 initialProcesses.set(position, updatedProcess);
             }
         }
@@ -102,20 +110,20 @@ public class ProcessManager {
             Process existingProcess = initialProcesses.get(position);
             if (existingProcess.getName().equalsIgnoreCase(processName)) {
                 
-            
+                // Limpiar referencias anteriores del proceso
                 processRelations.remove(processName);
                 
-         
+                // Mantener la prioridad inicial original
                 int originalInitialPriority = existingProcess.getInitialPriority();
                 
-            
+                // Crear proceso actualizado
                 Process updatedProcess = new Process(processName, newTime, newTime, newStatus, 0,
                                                    originalInitialPriority, finalPriority, suspended, resumed, destroyed, referencedProcess);
                 
-                
+                // Reemplazar en la lista
                 initialProcesses.set(position, updatedProcess);
                 
-               
+                // Agregar nueva referencia si existe
                 if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
                     addProcessRelation(processName, referencedProcess);
                 }
@@ -132,11 +140,14 @@ public class ProcessManager {
     public void runSimulation() {
         executionLogs.clear();
         
-       
+        // Clonar procesos para la simulación
         ArrayList<Process> processQueue = cloneProcesses();
+        
+        // ORDENAR UNA SOLA VEZ POR PRIORIDAD AL INICIO
+        // Menor número = mayor prioridad (1 es más prioritario que 2)
         processQueue.sort((a, b) -> Integer.compare(a.getFinalPriority(), b.getFinalPriority()));
         
-      
+        // Agregar logs de cambio de prioridad al inicio
         for (Process p : processQueue) {
             if (p.hasPriorityChange()) {
                 addLog(p, Filter.PRIORIDAD_CAMBIADA);
@@ -144,8 +155,12 @@ public class ProcessManager {
             }
         }
         
+        // EJECUTAR ROUND ROBIN PURO (SIN reordenar por prioridad)
         while (!processQueue.isEmpty()) {
+            // Tomar el primer proceso de la cola (ya están ordenados por prioridad inicial)
             Process currentProcess = processQueue.remove(0);
+            
+            // Ejecutar el proceso por un quantum
             executeProcessCycle(currentProcess, processQueue);
         }
     }
@@ -159,37 +174,39 @@ public class ProcessManager {
     }
 
     private void executeProcessCycle(Process process, ArrayList<Process> queue) {
-      
+        // Proceso listo
         addLog(process, Filter.LISTO);
 
-     
+        // Verificar suspensión
         if (process.isSuspended()) {
             addLog(process, Filter.SUSPENDIDO);
         }
 
-        
+        // Verificar reanudación
         if (process.isResumed()) {
             addLog(process, Filter.REANUDADO);
         }
 
-       
+        // Despachar proceso
         addLog(process, Filter.DESPACHADO);
 
-       
+        // Ejecutar por quantum de tiempo
         process.subtractTime(Constants.QUANTUM_TIME);
         addLog(process, Filter.EN_EJECUCION);
 
-       
+        // Verificar si fue destruido
         if (process.isDestroyed()) {
             addLog(process, Filter.DESTRUIDO);
-            return; 
+            return; // El proceso destruido no continúa
         }
 
-       
+        // Verificar si terminó
         if (process.isFinished()) {
             addLog(process, Filter.FINALIZADO);
         } else {
+            // El proceso NO terminó, debe volver a la cola
             process.incrementCycle();
+            
             if (process.isBlocked()) {
                 addLog(process, Filter.BLOQUEADO);
                 addLog(process, Filter.DESPERTAR);
@@ -197,17 +214,10 @@ public class ProcessManager {
                 addLog(process, Filter.TIEMPO_EXPIRADO);
             }
             
-            insertByPriority(queue, process);
+            // AGREGAR AL FINAL DE LA COLA (Round Robin normal)
+            // NO reordenar por prioridad, mantener el orden de llegada
+            queue.add(process);
         }
-    }
-
-    private void insertByPriority(ArrayList<Process> queue, Process process) {
-        int insertIndex = 0;
-        while (insertIndex < queue.size() && 
-               queue.get(insertIndex).getFinalPriority() <= process.getFinalPriority()) {
-            insertIndex++;
-        }
-        queue.add(insertIndex, process);
     }
 
     private void addLog(Process process, Filter filter) {
@@ -225,7 +235,7 @@ public class ProcessManager {
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
     }
 
- 
+    // Obtener procesos con cambio de prioridad
     public List<Process> getProcessesWithPriorityChanges() {
         System.out.println("DEBUG: Buscando procesos con cambio de prioridad...");
         List<Process> result = new ArrayList<>();
@@ -239,7 +249,7 @@ public class ProcessManager {
         return result;
     }
 
-
+    // Generar reporte de relaciones entre procesos
     public List<String> getProcessRelationsReport() {
         List<String> report = new ArrayList<>();
         
@@ -263,7 +273,7 @@ public class ProcessManager {
         return report;
     }
 
-   
+    // Obtener procesos suspendidos
     public List<Process> getSuspendedProcesses() {
         return initialProcesses.stream()
                 .filter(Process::isSuspended)
