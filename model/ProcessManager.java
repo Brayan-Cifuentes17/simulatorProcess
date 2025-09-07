@@ -34,7 +34,7 @@ public class ProcessManager {
         
         if (finalPriority != 1) {
             process.setFinalPriority(finalPriority);
-            System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: 1 -> " + finalPriority);
+            
         }
         
         initialProcesses.add(process);
@@ -57,7 +57,7 @@ public class ProcessManager {
         
         if (finalPriority != initialPriority) {
             process.setFinalPriority(finalPriority);
-            System.out.println("DEBUG: Proceso " + name + " creado con cambio de prioridad: " + initialPriority + " -> " + finalPriority);
+            
         }
         
         initialProcesses.add(process);
@@ -156,7 +156,7 @@ public class ProcessManager {
         for (Process p : processQueue) {
             if (p.hasPriorityChange()) {
                 addLog(p, Filter.PRIORIDAD_CAMBIADA);
-                System.out.println("DEBUG: Agregando log de prioridad cambiada para " + p.getName());
+                
             }
         }
         
@@ -241,15 +241,15 @@ public class ProcessManager {
 
     
     public List<Process> getProcessesWithPriorityChanges() {
-        System.out.println("DEBUG: Buscando procesos con cambio de prioridad...");
+        
         List<Process> result = new ArrayList<>();
         for (Process p : initialProcesses) {
-            System.out.println("DEBUG: Proceso " + p.getName() + " - Inicial: " + p.getInitialPriority() + ", Final: " + p.getFinalPriority() + ", Tiene cambio: " + p.hasPriorityChange());
+          
             if (p.hasPriorityChange()) {
                 result.add(p);
             }
         }
-        System.out.println("DEBUG: Encontrados " + result.size() + " procesos con cambio de prioridad");
+     
         return result;
     }
 
@@ -258,51 +258,59 @@ public class ProcessManager {
         List<String> report = new ArrayList<>();
         Set<String> addedRelations = new HashSet<>(); 
         
+     
         
-        for (Map.Entry<String, List<String>> entry : processRelations.entrySet()) {
-            String process = entry.getKey();
-            List<String> references = entry.getValue();
-            
-            if (!references.isEmpty()) {
+        // PASO 1: Agregar todas las relaciones directas (A -> B)
+        for (Process process : initialProcesses) {
+            if (process.hasReference() && process.getReferencedProcess() != null) {
+                String[] references = process.getReferencedProcess().split(",");
+                
                 for (String reference : references) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(process).append(" -> ").append(reference);
-                    String relation = sb.toString();
+                    String cleanRef = reference.trim();
                     
-                    if (!addedRelations.contains(relation)) {
-                        report.add(relation);
-                        addedRelations.add(relation);
+                    // Verificar que el proceso referenciado existe
+                    if (processExists(cleanRef)) {
+                        String relation = process.getName() + " -> " + cleanRef;
+                        
+                        if (!addedRelations.contains(relation)) {
+                            report.add(relation);
+                            addedRelations.add(relation);
+                            
+                        }
                     }
                 }
             }
-        }
-        
-      
-        for (Map.Entry<String, List<String>> entry : processRelations.entrySet()) {
-            String process = entry.getKey();
-            List<String> references = entry.getValue();
+    }
+    
+    // PASO 2: Agregar todas las relaciones inversas (B -> A) para hacer bidireccional
+    for (Process process : initialProcesses) {
+        if (process.hasReference() && process.getReferencedProcess() != null) {
+            String[] references = process.getReferencedProcess().split(",");
             
-            if (!references.isEmpty()) {
-                for (String reference : references) {
+            for (String reference : references) {
+                String cleanRef = reference.trim();
+                
+                // Verificar que el proceso referenciado existe
+                if (processExists(cleanRef)) {
+                    // Crear relación inversa: referenciado -> proceso que lo referencia
+                    String inverseRelation = cleanRef + " -> " + process.getName();
                     
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(reference).append(" -> ").append(process);
-                    String inverseRelation = sb.toString();
-                    
-                  
-                    if (!addedRelations.contains(inverseRelation) && processExists(reference)) {
+                    if (!addedRelations.contains(inverseRelation)) {
                         report.add(inverseRelation);
                         addedRelations.add(inverseRelation);
+                      
                     }
                 }
             }
         }
-        
-        
-        report.sort(String::compareTo);
-        
-        return report;
     }
+    
+    // PASO 3: Ordenar alfabéticamente para mejor presentación
+    report.sort(String::compareTo);
+    
+
+    return report;
+}
 
    
     public List<Process> getSuspendedProcesses() {

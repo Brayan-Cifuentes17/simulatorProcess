@@ -27,8 +27,11 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
     private JComboBox<String> cmbSuspended;
     private JComboBox<String> cmbResumed;
     private JComboBox<String> cmbDestroyed;
-    private JList<String> listReferencedProcesses;  // Cambio de JComboBox a JList
-    private DefaultListModel<String> referencedProcessesModel;
+    
+    // CAMBIO: Reemplazar JList por sistema de checkboxes
+    private JPanel referencedProcessesPanel;
+    private JScrollPane referencedProcessesScrollPane;
+    private List<JCheckBox> referencedProcessesCheckboxes;
     
     // Process table
     private DefaultTableModel processTableModel;
@@ -79,15 +82,18 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         cmbResumed = new JComboBox<>(new String[]{"No", "Si"});
         cmbDestroyed = new JComboBox<>(new String[]{"No", "Si"});
         
-        // Lista múltiple para procesos referenciados
-        referencedProcessesModel = new DefaultListModel<>();
-        listReferencedProcesses = new JList<>(referencedProcessesModel);
-        listReferencedProcesses.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        listReferencedProcesses.setVisibleRowCount(3);
+        // CAMBIO: Sistema de checkboxes para procesos referenciados
+        referencedProcessesPanel = new JPanel();
+        referencedProcessesPanel.setLayout(new BoxLayout(referencedProcessesPanel, BoxLayout.Y_AXIS));
+        referencedProcessesCheckboxes = new ArrayList<>();
+        referencedProcessesScrollPane = new JScrollPane(referencedProcessesPanel);
+        referencedProcessesScrollPane.setPreferredSize(new Dimension(200, 80));
+        referencedProcessesScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        referencedProcessesScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
 
         setupTimeField();
         setupPriorityFields();
-        updateReferencedProcessList();
+        updateReferencedProcessCheckboxes();
 
         // Process table
         processTableModel = new DefaultTableModel(
@@ -143,6 +149,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         }
     }
 
+    // CAMBIO: Arreglar la trampa del tiempo
     private void setupTimeField() {
         txtProcessTime.addKeyListener(new KeyListener() {
             @Override
@@ -151,9 +158,6 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 if (!Character.isDigit(c) && c != KeyEvent.VK_BACK_SPACE && c != KeyEvent.VK_DELETE) {
                     e.consume();
                 }
-                
-                // Formatear inmediatamente después de que se agregue el carácter
-                SwingUtilities.invokeLater(() -> formatTimeField());
             }
 
             @Override
@@ -161,8 +165,12 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                // Mantener el formateo también aquí como respaldo
-                formatTimeField();
+                // Solo formatear si no es un número demasiado largo
+                String text = txtProcessTime.getText().replaceAll("[^0-9]", "");
+                if (!text.isEmpty() && text.length() <= 18) {
+                    formatTimeField();
+                }
+                // Si es más largo, NO formatear para que la trampa funcione después
             }
         });
     }
@@ -188,14 +196,16 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         txtPriorityChange.addKeyListener(priorityListener);
     }
 
+    // CAMBIO: Modificar formatTimeField para que no interfiera con números muy largos
     private void formatTimeField() {
         String text = txtProcessTime.getText().replaceAll("[^0-9]", "");
         if (!text.isEmpty()) {
             try {
-                // Limitar a 18 dígitos para evitar overflow
+                // Si el texto es muy largo, no formatear aún
                 if (text.length() > 18) {
-                    text = text.substring(0, 18);
+                    return; // Dejar que parseTimeWithTrick maneje esto
                 }
+                
                 long number = Long.parseLong(text);
                 String formatted = numberFormatter.format(number);
                 
@@ -224,19 +234,19 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         // Pero nosotros silenciosamente tomamos solo los primeros 18 dígitos
         if (numbersOnly.length() > 18) {
             numbersOnly = numbersOnly.substring(0, 18);
-            System.out.println("DEBUG: Número truncado silenciosamente a 18 dígitos: " + numbersOnly);
+            
         }
         
         // Intentar parsear el número, si falla intentar con menos dígitos
         while (numbersOnly.length() > 1) {
             try {
                 long result = Long.parseLong(numbersOnly);
-                System.out.println("DEBUG: Número parseado exitosamente: " + result);
+            
                 return result;
             } catch (NumberFormatException ex) {
-                // Si falla, quitar el primer dígito e intentar de nuevo
+                
                 numbersOnly = numbersOnly.substring(1); 
-                System.out.println("DEBUG: Reintentando con: " + numbersOnly);
+               
             }
         }
         
@@ -251,10 +261,46 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         return parseTimeWithTrick(timeField.getText());
     }
 
-    private void updateReferencedProcessList() {
-        referencedProcessesModel.clear();
-        for (model.Process p : processManager.getInitialProcesses()) {
-            referencedProcessesModel.addElement(p.getName());
+    // CAMBIO: Nuevo método para actualizar checkboxes
+    private void updateReferencedProcessCheckboxes() {
+        referencedProcessesPanel.removeAll();
+        referencedProcessesCheckboxes.clear();
+        
+        List<model.Process> processes = processManager.getInitialProcesses();
+        
+        if (processes.isEmpty()) {
+            JLabel noProcessesLabel = new JLabel("No hay procesos disponibles");
+            noProcessesLabel.setFont(new Font("Arial", Font.ITALIC, 12));
+            noProcessesLabel.setForeground(Color.GRAY);
+            referencedProcessesPanel.add(noProcessesLabel);
+        } else {
+            for (model.Process p : processes) {
+                JCheckBox checkBox = new JCheckBox(p.getName());
+                checkBox.setFont(new Font("Arial", Font.PLAIN, 12));
+                referencedProcessesCheckboxes.add(checkBox);
+                referencedProcessesPanel.add(checkBox);
+            }
+        }
+        
+        referencedProcessesPanel.revalidate();
+        referencedProcessesPanel.repaint();
+    }
+
+    // CAMBIO: Método para obtener procesos seleccionados
+    private List<String> getSelectedReferencedProcesses() {
+        List<String> selected = new ArrayList<>();
+        for (JCheckBox checkBox : referencedProcessesCheckboxes) {
+            if (checkBox.isSelected()) {
+                selected.add(checkBox.getText());
+            }
+        }
+        return selected;
+    }
+
+    // CAMBIO: Método para limpiar selecciones
+    private void clearReferencedProcessesSelection() {
+        for (JCheckBox checkBox : referencedProcessesCheckboxes) {
+            checkBox.setSelected(false);
         }
     }
 
@@ -362,13 +408,11 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         panel.add(cmbDestroyed, gbc);
         row++;
 
-        // Referenced processes (multiple selection)
+        // CAMBIO: Procesos referenciados con checkboxes
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Comunicar procesos:"), gbc);
         gbc.gridx = 1;
-        JScrollPane scrollPane = new JScrollPane(listReferencedProcesses);
-        scrollPane.setPreferredSize(new Dimension(200, 60));
-        panel.add(scrollPane, gbc);
+        panel.add(referencedProcessesScrollPane, gbc);
 
         return panel;
     }
@@ -483,8 +527,8 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 return;
             }
 
-            // Get selected referenced processes
-            List<String> selectedProcesses = listReferencedProcesses.getSelectedValuesList();
+            // CAMBIO: Usar el nuevo método para obtener procesos seleccionados
+            List<String> selectedProcesses = getSelectedReferencedProcesses();
             String referencedProcesses = selectedProcesses.isEmpty() ? null : String.join(",", selectedProcesses);
 
             int finalPriority = priority;
@@ -508,7 +552,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                                     suspended, resumed, destroyed, referencedProcesses);
             
             updateProcessTable();
-            updateReferencedProcessList();
+            updateReferencedProcessCheckboxes();
             clearForm();
             showInfo("Proceso agregado exitosamente");
 
@@ -541,10 +585,11 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         editDialog.setVisible(true);
     }
 
+    // CAMBIO: Modificar el diálogo de edición para usar checkboxes
     private JDialog createEditDialog(model.Process process, int selectedRow) {
         JDialog dialog = new JDialog(this, "Modificar Proceso", true);
         dialog.setLayout(new GridBagLayout());
-        dialog.setSize(450, 600);  // Ajustado para incluir lista múltiple
+        dialog.setSize(450, 600);
         dialog.setLocationRelativeTo(this);
 
         GridBagConstraints gbc = new GridBagConstraints();
@@ -578,35 +623,42 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         cmbEditDestroyed.setSelectedIndex(process.isDestroyed() ? 1 : 0);
         cmbEditDestroyed.setPreferredSize(new Dimension(200, 25));
 
-        // Lista múltiple para procesos referenciados en edición
-        DefaultListModel<String> editReferencedModel = new DefaultListModel<>();
-        JList<String> listEditReferences = new JList<>(editReferencedModel);
-        listEditReferences.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        listEditReferences.setVisibleRowCount(3);
-        
-        // Poblar lista y seleccionar procesos actuales
+        // CAMBIO: Panel de checkboxes para procesos referenciados en edición
+        JPanel editReferencedPanel = new JPanel();
+        editReferencedPanel.setLayout(new BoxLayout(editReferencedPanel, BoxLayout.Y_AXIS));
+        List<JCheckBox> editReferencedCheckboxes = new ArrayList<>();
+
+        // Poblar panel con checkboxes
         for (model.Process p : processManager.getInitialProcesses()) {
             if (!p.getName().equals(process.getName())) {
-                editReferencedModel.addElement(p.getName());
-            }
-        }
-        
-        // Seleccionar procesos referenciados actuales
-        if (process.hasReference()) {
-            String[] currentRefs = process.getReferencedProcess().split(",");
-            for (String ref : currentRefs) {
-                int index = editReferencedModel.indexOf(ref.trim());
-                if (index >= 0) {
-                    listEditReferences.addSelectionInterval(index, index);
+                JCheckBox checkBox = new JCheckBox(p.getName());
+                checkBox.setFont(new Font("Arial", Font.PLAIN, 12));
+                
+                // Seleccionar si está en las referencias actuales
+                if (process.hasReference()) {
+                    String[] currentRefs = process.getReferencedProcess().split(",");
+                    for (String ref : currentRefs) {
+                        if (ref.trim().equals(p.getName())) {
+                            checkBox.setSelected(true);
+                            break;
+                        }
+                    }
                 }
+                
+                editReferencedCheckboxes.add(checkBox);
+                editReferencedPanel.add(checkBox);
             }
         }
+
+        JScrollPane editScrollPane = new JScrollPane(editReferencedPanel);
+        editScrollPane.setPreferredSize(new Dimension(200, 80));
+        editScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 
         // Add components to dialog
         int row = 0;
         addDialogComponent(dialog, gbc, "Nombre:", txtEditName, row++);
         addDialogComponent(dialog, gbc, "Tiempo:", txtEditTime, row++);
-        addDialogComponent(dialog, gbc, "Prioridad:", txtEditPriority, row++);  // Solo un campo
+        addDialogComponent(dialog, gbc, "Prioridad:", txtEditPriority, row++);
         addDialogComponent(dialog, gbc, "Estado:", cmbEditStatus, row++);
         addDialogComponent(dialog, gbc, "Suspendido:", cmbEditSuspended, row++);
         addDialogComponent(dialog, gbc, "Reanudado:", cmbEditResumed, row++);
@@ -624,8 +676,6 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         gbc.gridx = 1;
         gbc.anchor = GridBagConstraints.WEST; 
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        JScrollPane editScrollPane = new JScrollPane(listEditReferences);
-        editScrollPane.setPreferredSize(new Dimension(200, 60));
         dialog.add(editScrollPane, gbc);
         row++;
 
@@ -641,7 +691,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         btnSave.addActionListener(e -> {
             if (saveEditedProcess(dialog, process, selectedRow, txtEditTime, txtEditPriority, 
                                 cmbEditStatus, cmbEditSuspended, 
-                                cmbEditResumed, cmbEditDestroyed, listEditReferences)) {
+                                cmbEditResumed, cmbEditDestroyed, editReferencedCheckboxes)) {
                 dialog.dispose();
             }
         });
@@ -694,11 +744,12 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         dialog.add(component, gbc);
     }
 
+    // CAMBIO: Modificar saveEditedProcess para usar checkboxes
     private boolean saveEditedProcess(JDialog dialog, model.Process originalProcess, int selectedRow,
                                 JTextField txtTime, JTextField txtPriority,
                                 JComboBox<String> cmbStatus, JComboBox<String> cmbSuspended,
                                 JComboBox<String> cmbResumed, JComboBox<String> cmbDestroyed,
-                                JList<String> listReferences) {
+                                List<JCheckBox> editReferencedCheckboxes) {
         try {
             // Parse time
             long newTime = parseTimeFieldForDialog(txtTime);
@@ -726,8 +777,13 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 return false;
             }
 
-            // Get multiple references
-            List<String> selectedRefs = listReferences.getSelectedValuesList();
+            // CAMBIO: Obtener referencias múltiples de los checkboxes
+            List<String> selectedRefs = new ArrayList<>();
+            for (JCheckBox checkBox : editReferencedCheckboxes) {
+                if (checkBox.isSelected()) {
+                    selectedRefs.add(checkBox.getText());
+                }
+            }
             String newReferences = selectedRefs.isEmpty() ? null : String.join(",", selectedRefs);
 
             // Update process
@@ -735,7 +791,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                                      newPriority, newSuspended, newResumed, newDestroyed, newReferences);
             
             updateProcessTable();
-            updateReferencedProcessList();
+            updateReferencedProcessCheckboxes();
             showInfo("Proceso editado exitosamente");
             return true;
 
@@ -754,14 +810,48 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
         String processName = (String) processTableModel.getValueAt(selectedRow, 0);
         
-        // Check if process is referenced by others
-        if (processManager.isProcessReferenced(processName)) {
-            showError("No se puede eliminar el proceso '" + processName + "' porque está siendo comunicado por otros procesos.");
+        // VERIFICACIÓN MEJORADA: Check if process is referenced by others
+        if (isProcessBeingReferenced(processName)) {
+            List<String> referencingProcesses = getProcessesReferencingThis(processName);
+            String referencingList = String.join(", ", referencingProcesses);
+            showError("No se puede eliminar el proceso '" + processName + "' porque está siendo comunicado por: " + referencingList + ".<br><br>Elimine primero las referencias o modifique los procesos que lo comunican.");
             return;
         }
         
         currentAction = "DELETE_PROCESS:" + processName;
         new CustomDialog(this, "¿Está seguro de que desea eliminar el proceso '" + processName + "'?", CustomDialog.CONFIRM_TYPE);
+    }
+
+    // MÉTODO MEJORADO: Verificar si un proceso está siendo referenciado por otros
+    private boolean isProcessBeingReferenced(String processName) {
+        for (model.Process p : processManager.getInitialProcesses()) {
+            if (p.hasReference()) {
+                String[] references = p.getReferencedProcess().split(",");
+                for (String ref : references) {
+                    if (ref.trim().equalsIgnoreCase(processName.trim())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // MÉTODO NUEVO: Obtener lista de procesos que referencian a este proceso
+    private List<String> getProcessesReferencingThis(String processName) {
+        List<String> referencingProcesses = new ArrayList<>();
+        for (model.Process p : processManager.getInitialProcesses()) {
+            if (p.hasReference()) {
+                String[] references = p.getReferencedProcess().split(",");
+                for (String ref : references) {
+                    if (ref.trim().equalsIgnoreCase(processName.trim())) {
+                        referencingProcesses.add(p.getName());
+                        break; // Solo agregar el proceso una vez
+                    }
+                }
+            }
+        }
+        return referencingProcesses;
     }
 
     private void runSimulation() {
@@ -770,20 +860,19 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             return;
         }
 
-        // Debug: Check priority changes before simulation
         List<model.Process> priorityChangesBeforeSim = processManager.getProcessesWithPriorityChanges();
-        System.out.println("Procesos con cambio de prioridad antes de simulación: " + priorityChangesBeforeSim.size());
+        
         for (model.Process p : priorityChangesBeforeSim) {
             System.out.println("- " + p.getName() + ": " + p.getInitialPriority() + " -> " + p.getFinalPriority());
         }
 
         processManager.runSimulation();
         
-        // Debug: Check priority logs after simulation
+      
         List<Log> priorityLogs = processManager.getLogsByFilter(Filter.PRIORIDAD_CAMBIADA);
-        System.out.println("Logs de prioridad cambiada después de simulación: " + priorityLogs.size());
         
-        // Update all result tables
+        
+      
         for (int i = 0; i < tableNames.length; i++) {
             updateResultTable(i);
         }
@@ -994,19 +1083,27 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 }
                 break;
                 
-            case 12: // Relations/Communication
+            case 12: // Relations/Communication - MEJORADO para bidireccional
                 List<String> relations = processManager.getProcessRelationsReport();
                 if (relations.isEmpty()) {
                     resultTableModels[tableIndex].addRow(new Object[]{
                         "Sin Comunicacion", "No hay procesos con referencias"
                     });
                 } else {
+                    
                     for (String relation : relations) {
                         String[] parts = relation.split(" -> ");
                         if (parts.length == 2) {
+                            String fromProcess = parts[0].trim();
+                            String toProcess = parts[1].trim();
+                            
+                            // Mostrar de forma más clara la comunicación bidireccional
                             resultTableModels[tableIndex].addRow(new Object[]{
-                                parts[0], "Comunica con: " + parts[1]
+                                fromProcess, 
+                                "Comunica con: " + toProcess
                             });
+                            
+                            
                         }
                     }
                 }
@@ -1019,6 +1116,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         new CustomDialog(this, "¿Está seguro de que desea eliminar todos los procesos?", CustomDialog.CONFIRM_TYPE);
     }
 
+    // CAMBIO: Modificar clearForm para usar el nuevo método
     private void clearForm() {
         txtProcessName.setText("");
         txtProcessTime.setText("");
@@ -1028,7 +1126,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         cmbSuspended.setSelectedIndex(0);
         cmbResumed.setSelectedIndex(0);
         cmbDestroyed.setSelectedIndex(0);
-        listReferencedProcesses.clearSelection();  // Limpiar selección de lista múltiple
+        clearReferencedProcessesSelection();  // CAMBIO: Limpiar selección de checkboxes
     }
 
     private void openUserManual() {
@@ -1100,12 +1198,12 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
                 String processName = currentAction.substring("DELETE_PROCESS:".length());
                 processManager.removeProcess(processName);
                 updateProcessTable();
-                updateReferencedProcessList();
+                updateReferencedProcessCheckboxes();  // CAMBIO: Usar nuevo método
                 showInfo("Proceso eliminado");
             } else if (currentAction.equals("CLEAR_ALL")) {
                 processManager.clearAll();
                 updateProcessTable();
-                updateReferencedProcessList();
+                updateReferencedProcessCheckboxes();  // CAMBIO: Usar nuevo método
                 
                 for (DefaultTableModel model : resultTableModels) {
                     model.setRowCount(0);
