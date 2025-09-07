@@ -2,7 +2,7 @@ package model;
 
 public class Log {
     private String processName;
-    private int remainingTime;
+    private long remainingTime;
     private Status status;
     private Filter filter;
     private int cycleCount;
@@ -23,7 +23,7 @@ public class Log {
         return processName;
     }
 
-    public int getRemainingTime() {
+    public long getRemainingTime() {
         return remainingTime;
     }
 

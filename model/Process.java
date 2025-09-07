@@ -2,8 +2,8 @@ package model;
 
 public class Process {
     private String name;
-    private int originalTime;
-    private int remainingTime;
+    private long originalTime;
+    private long remainingTime;
     private Status status;
     private int cycleCount;
     
@@ -16,7 +16,7 @@ public class Process {
     private int priorityChange;
     private String referencedProcess; 
 
-    public Process(String name, int time, Status status) {
+    public Process(String name, long time, Status status) {
         this.name = name;
         this.originalTime = time;
         this.remainingTime = time;
@@ -33,7 +33,7 @@ public class Process {
     }
     
     
-    public Process(String name, int time, Status status, int initialPriority, 
+    public Process(String name, long time, Status status, int initialPriority, 
                    Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         this.name = name;
         this.originalTime = time;
@@ -49,7 +49,7 @@ public class Process {
         this.referencedProcess = referencedProcess;
     }
 
-    public Process(String name, int originalTime, int remainingTime, Status status, int cycleCount,
+    public Process(String name, long originalTime, long remainingTime, Status status, int cycleCount,
                    int initialPriority, int finalPriority, Status suspended, Status resumed, 
                    Status destroyed, String referencedProcess) {
         this.name = name;
@@ -67,7 +67,7 @@ public class Process {
         this.referencedProcess = referencedProcess;
     }
 
-    public void subtractTime(int time) {
+    public void subtractTime(long time) {
         this.remainingTime -= time;
         if (remainingTime < 0) {
             remainingTime = 0;
@@ -116,11 +116,11 @@ public class Process {
         return name;
     }
 
-    public int getOriginalTime() {
+    public long getOriginalTime() {
         return originalTime;
     }
 
-    public int getRemainingTime() {
+    public long getRemainingTime() {
         return remainingTime;
     }
 
@@ -181,7 +181,7 @@ public class Process {
         this.name = name;
     }
 
-    public void setOriginalTime(int originalTime) {
+    public void setOriginalTime(long originalTime) {
         this.originalTime = originalTime;
         this.remainingTime = originalTime;
     }

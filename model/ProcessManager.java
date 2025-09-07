@@ -19,13 +19,13 @@ public class ProcessManager {
     }
 
    
-    public void addProcess(String name, int time, Status status) {
+    public void addProcess(String name, long time, Status status) {
         Process process = new Process(name, time, status);
         initialProcesses.add(process);
     }
 
  
-    public void addProcess(String name, int time, Status status, int finalPriority, 
+    public void addProcess(String name, long time, Status status, int finalPriority, 
                           Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         
       
@@ -41,12 +41,15 @@ public class ProcessManager {
         
         
         if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
-            addProcessRelation(name, referencedProcess);
+            String[] refs = referencedProcess.split(",");
+            for (String ref : refs) {
+                addProcessRelation(name, ref.trim());
+            }
         }
     }
 
     
-    public void addProcess(String name, int time, Status status, int initialPriority, int finalPriority, 
+    public void addProcess(String name, long time, Status status, int initialPriority, int finalPriority, 
                           Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         
         Process process = new Process(name, time, status, initialPriority, suspended, resumed, destroyed, referencedProcess);
@@ -94,7 +97,7 @@ public class ProcessManager {
         processRelations.values().forEach(list -> list.removeIf(ref -> ref.equalsIgnoreCase(name.trim())));
     }
 
-    public void editProcess(int position, String processName, int newTime, Status newStatus) {
+    public void editProcess(int position, String processName, long newTime, Status newStatus) {
         if (position >= 0 && position < initialProcesses.size()) {
             Process existingProcess = initialProcesses.get(position);
             if (existingProcess.getName().equalsIgnoreCase(processName)) {
@@ -106,7 +109,7 @@ public class ProcessManager {
         }
     }
 
-    public void editProcess(int position, String processName, int newTime, Status newStatus, 
+    public void editProcess(int position, String processName, long newTime, Status newStatus, 
                            int finalPriority, Status suspended, Status resumed, Status destroyed, String referencedProcess) {
         if (position >= 0 && position < initialProcesses.size()) {
             Process existingProcess = initialProcesses.get(position);
@@ -127,10 +130,11 @@ public class ProcessManager {
                 
               
                 if (referencedProcess != null && !referencedProcess.trim().isEmpty()) {
-                    addProcessRelation(processName, referencedProcess);
+                    String [] refs = referencedProcess.split(",");
+                    for (String ref : refs) {
+                        addProcessRelation(processName, ref.trim());
+                    }
                 }
-                
-                System.out.println("DEBUG: Proceso " + processName + " editado. Prioridad: " + originalInitialPriority + " -> " + finalPriority + " (Cambio: " + updatedProcess.hasPriorityChange() + ")");
             }
         }
     }
