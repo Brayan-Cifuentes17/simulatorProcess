@@ -479,7 +479,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         panel.add(cmbDestroyed, gbc);
         row++;
 
-        // CAMBIO: Procesos referenciados con checkboxes
+        
         gbc.gridx = 0; gbc.gridy = row;
         panel.add(new JLabel("Comunicar procesos:"), gbc);
         gbc.gridx = 1;
@@ -488,11 +488,18 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         return panel;
     }
 
-    private JPanel createActionPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS)); 
-        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+
+    private JPanel createActionPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5); // Espaciado entre botones
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0; // Los botones se expanden horizontalmente
+
+        // Crear botones con tamaño preferido
         JButton btnAdd = new JButton("Agregar");
         JButton btnEdit = new JButton("Modificar");
         JButton btnDelete = new JButton("Eliminar");
@@ -501,27 +508,68 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         JButton btnExit = new JButton("Salir");
         JButton btnManual = new JButton("Manual de usuario");
 
+        // Configurar tamaño preferido para todos los botones
+        Dimension buttonSize = new Dimension(140, 35);
+        btnAdd.setPreferredSize(buttonSize);
+        btnEdit.setPreferredSize(buttonSize);
+        btnDelete.setPreferredSize(buttonSize);
+        btnSimulate.setPreferredSize(buttonSize);
+        btnReset.setPreferredSize(buttonSize);
+        btnExit.setPreferredSize(buttonSize);
+        btnManual.setPreferredSize(buttonSize);
+
+        // Personalizar colores de botones específicos
+        // Botón Ejecutar Simulación - Verde
+        btnSimulate.setBackground(new Color(46, 125, 50)); // Verde oscuro
+        btnSimulate.setForeground(Color.WHITE);
+        btnSimulate.setOpaque(true);
+        btnSimulate.setBorderPainted(false);
+        btnSimulate.setFocusPainted(false);
+        
+        // Botón Salir - Rojo
+        btnExit.setBackground(new Color(198, 40, 40)); // Rojo oscuro
+        btnExit.setForeground(Color.WHITE);
+        btnExit.setOpaque(true);
+        btnExit.setBorderPainted(false);
+        btnExit.setFocusPainted(false);
+
+        // Agregar event listeners
         btnAdd.addActionListener(e -> addProcess());
         btnEdit.addActionListener(e -> editProcess());
         btnDelete.addActionListener(e -> deleteProcess());
         btnSimulate.addActionListener(e -> runSimulation());
         btnExit.addActionListener(e -> System.exit(0));
         btnManual.addActionListener(e -> openUserManual());
-        btnReset.addActionListener(e -> clearAll());  
+        btnReset.addActionListener(e -> clearAll());
+
+        // Distribución en 2 columnas:
+        // Columna 1 (izquierda) - x=0
+        gbc.gridx = 0; gbc.gridy = 0;
+        panel.add(btnAdd, gbc);
         
-        panel.add(btnAdd);
-        panel.add(Box.createRigidArea(new Dimension(0, 10))); 
-        panel.add(btnEdit);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
-        panel.add(btnDelete);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
-        panel.add(btnSimulate);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
-        panel.add(btnManual);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
-        panel.add(btnReset);
-        panel.add(Box.createRigidArea(new Dimension(0, 10)));
-        panel.add(btnExit);
+        gbc.gridx = 0; gbc.gridy = 1;
+        panel.add(btnEdit, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 2;
+        panel.add(btnDelete, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 3;
+        panel.add(btnSimulate, gbc);
+
+        // Columna 2 (derecha) - x=1
+        gbc.gridx = 1; gbc.gridy = 0;
+        panel.add(btnManual, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 1;
+        panel.add(btnReset, gbc);
+        
+        gbc.gridx = 1; gbc.gridy = 2;
+        panel.add(btnExit, gbc);
+
+        // Espacio vacío en la última fila para balancear
+        gbc.gridx = 1; gbc.gridy = 3;
+        panel.add(Box.createRigidArea(new Dimension(0, 0)), gbc);
+
         return panel;
     }
 
