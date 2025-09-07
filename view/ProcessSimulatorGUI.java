@@ -149,14 +149,24 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
         }
     }
 
-    // CAMBIO: Arreglar la trampa del tiempo
+  
     private void setupTimeField() {
         txtProcessTime.addKeyListener(new KeyListener() {
             @Override
             public void keyTyped(KeyEvent e) {
                 char c = e.getKeyChar();
+                
+                
                 if (!Character.isDigit(c) && c != KeyEvent.VK_BACK_SPACE && c != KeyEvent.VK_DELETE) {
                     e.consume();
+                    return;
+                }
+                
+                
+                if (Character.isDigit(c)) {
+                    SwingUtilities.invokeLater(() -> {
+                        formatTimeFieldInRealTime();
+                    });
                 }
             }
 
@@ -165,14 +175,75 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                // Solo formatear si no es un número demasiado largo
-                String text = txtProcessTime.getText().replaceAll("[^0-9]", "");
-                if (!text.isEmpty() && text.length() <= 18) {
-                    formatTimeField();
-                }
-                // Si es más largo, NO formatear para que la trampa funcione después
+               
+                formatTimeFieldInRealTime();
             }
         });
+    }
+
+    private void formatTimeFieldInRealTime() {
+        String text = txtProcessTime.getText().replaceAll("[^0-9]", "");
+        if (!text.isEmpty()) {
+            try {
+      
+                
+                String displayText = text;
+                
+                
+                if (text.length() > 18) {
+                   
+                    StringBuilder formatted = new StringBuilder();
+                    int count = 0;
+                    for (int i = displayText.length() - 1; i >= 0; i--) {
+                        if (count > 0 && count % 3 == 0) {
+                            formatted.insert(0, ".");
+                        }
+                        formatted.insert(0, displayText.charAt(i));
+                        count++;
+                    }
+                    displayText = formatted.toString();
+                } else {
+                    
+                    long number = Long.parseLong(text);
+                    displayText = numberFormatter.format(number);
+                }
+                
+                if (!txtProcessTime.getText().equals(displayText)) {
+                    int caretPos = txtProcessTime.getCaretPosition();
+                    txtProcessTime.setText(displayText);
+                    try {
+                        
+                        int newCaretPos = Math.min(caretPos + (displayText.length() - text.length()), displayText.length());
+                        txtProcessTime.setCaretPosition(newCaretPos);
+                    } catch (IllegalArgumentException ex) {
+                        txtProcessTime.setCaretPosition(displayText.length());
+                    }
+                }
+            } catch (NumberFormatException ex) {
+           
+                if (text.length() > 0) {
+                    StringBuilder formatted = new StringBuilder();
+                    int count = 0;
+                    for (int i = text.length() - 1; i >= 0; i--) {
+                        if (count > 0 && count % 3 == 0) {
+                            formatted.insert(0, ".");
+                        }
+                        formatted.insert(0, text.charAt(i));
+                        count++;
+                    }
+                    
+                    if (!txtProcessTime.getText().equals(formatted.toString())) {
+                        int caretPos = txtProcessTime.getCaretPosition();
+                        txtProcessTime.setText(formatted.toString());
+                        try {
+                            txtProcessTime.setCaretPosition(Math.min(caretPos, formatted.length()));
+                        } catch (IllegalArgumentException ex2) {
+                            txtProcessTime.setCaretPosition(formatted.length());
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private void setupPriorityFields() {
@@ -203,7 +274,7 @@ public class ProcessSimulatorGUI extends JFrame implements ActionListener {
             try {
                 // Si el texto es muy largo, no formatear aún
                 if (text.length() > 18) {
-                    return; // Dejar que parseTimeWithTrick maneje esto
+                    return; 
                 }
                 
                 long number = Long.parseLong(text);
