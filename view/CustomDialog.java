@@ -66,7 +66,7 @@ public class CustomDialog extends JDialog implements KeyListener {
         panel.setPreferredSize(this.getSize());
         panel.setBackground(Color.lightGray);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(15, 15, 15, 15); // Más padding
+        gbc.insets = new Insets(15, 15, 15, 15); 
         
         
         JLabel label = new JLabel("<html><div style='text-align: center; width: " + 
@@ -125,18 +125,18 @@ public class CustomDialog extends JDialog implements KeyListener {
                 defaultButton.doClick();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            // ESC para cerrar el diálogo
+            
             this.dispose();
         }
     }
     
     @Override
     public void keyTyped(KeyEvent e) {
-        // No necesario
+      
     }
     
     @Override
     public void keyReleased(KeyEvent e) {
-        // No necesario
+       
     }
 }
